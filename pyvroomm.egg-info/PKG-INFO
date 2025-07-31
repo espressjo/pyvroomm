@@ -1,0 +1,18 @@
+Metadata-Version: 2.4
+Name: pyvroomm
+Version: 1.0.0
+Summary: VROOMM data modeling
+Home-page: 
+Author: Jonathan St-Antoine
+Author-email: jonathan@astro.umontreal.ca
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Requires-Python: >=3.12
+Requires-Dist: natsort
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
