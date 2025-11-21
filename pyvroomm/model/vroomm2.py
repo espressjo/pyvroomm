@@ -213,7 +213,7 @@ class vroomm:
         for o in _orders:
             Im+=fits.getdata(join(self.simulationdir,"%s..%d.fits"%(self.simulationname,o)))
         fits.PrimaryHDU(data=Im).writeto(join(self.simulationdir,"%s..all.fits"%(self.simulationname)),overwrite=True)
-    def create_hdf_orders(self,zmx_model):#"C:/Users/jo/OneDrive/OneDrive - Universite de Montreal/vroomm/pyechelle/VROOMM_F4_optim_biconic_20250513.ZMX"
+    def create_hdf_orders(self,zmx_model,interactive=False,n_transformation_per_order=50,n_psfs_per_order=5):#"C:/Users/jo/OneDrive/OneDrive - Universite de Montreal/vroomm/pyechelle/VROOMM_F4_optim_biconic_20250513.ZMX"
         """
         Description
         -----------
@@ -222,11 +222,13 @@ class vroomm:
         """
         #check if model already has HDF file
         self._exist()
-        self.zemax_file = zmx_model
-        
-        zmx_file = Path(zmx_model)    
+        if not interactive:
+            zmx_file = Path(zmx_model) 
+        else:
+            zmx_file = None   
         print("Working on: %s"%self.zemax_file)
-        zmx = InteractiveZEMAX(name=self.modelname, zemax_filepath=zmx_file)
+        zmx = InteractiveZEMAX(self.modelname,zmx_file)    
+        
         # set basic grating specifications
         zmx.set_grating(self.grating_idx, blaze=self.blaze, theta=self.theta, gamma=self.gamma)
         # add CCD information (only one CCD supported so far. So for instruments with multiple CCDs, you have to generate
@@ -249,10 +251,51 @@ class vroomm:
             savepath = join(self.orderdir,_name)
             hdf = HDFBuilder(zmx, savepath)
             # this will take a long time...
-            hdf.save_to_hdf(n_transformation_per_order=50, n_psfs_per_order=5)
+            hdf.save_to_hdf(n_transformation_per_order=n_transformation_per_order, n_psfs_per_order=n_psfs_per_order)
             _min,_max = zmx.get_wavelength_range(order,1,1)
             with open( self.order_list_f1,"a"   ) as f:
                 f.write("%d,%f,%f\n"%(order,_min,_max))
+        self._save()
+    def create_hdf_spectro(self,zmx_model,interactive=False,n_transformation_per_order=50,n_psfs_per_order=5):#"C:/Users/jo/OneDrive/OneDrive - Universite de Montreal/vroomm/pyechelle/VROOMM_F4_optim_biconic_20250513.ZMX"
+        """
+        Description
+        -----------
+            This function will open Link to a standalone OpticStudio instance.
+            Make sure the license manager and opticstudio is currently running.
+        """
+        #check if model already has HDF file
+        self._exist()
+        self.zemax_file = zmx_model
+        if not interactive:
+            zmx_file = Path(zmx_model) 
+        else:
+            zmx_file = None   
+        print("Working on: %s"%self.zemax_file)
+        zmx = InteractiveZEMAX(self.modelname,zmx_file)
+        # set basic grating specifications
+        zmx.set_grating(self.grating_idx, blaze=self.blaze, theta=self.theta, gamma=self.gamma)
+        # add CCD information (only one CCD supported so far. So for instruments with multiple CCDs, you have to generate
+        # separate models for now.
+        zmx.add_ccd(1, CCD(4096, 4096, pixelsize=self.pxsize))
+        # Add here as many fiber/fields as you wish. You don't have to fiddle with the fields in OpticStudio. The
+        # existing fields will be ignored/deleted.
+        zmx.add_field(0., 0., 33, 132, shape='rectangular', name='Science fiber')
+        #zmx.add_field(0., 0.150,67,67, shape='circular', name='Sky fiber')
+        # Add here a list with the diffraction orders you want to include
+        # Adjust settings for the Huygens PSF. Best to check out 'reasonable' parameters manually in ZEMAX first.
+        zmx.psf_settings(image_delta=0.5, image_sampling="128x128", pupil_sampling="128x128")
+        
+        zmx.set_orders(1, 1, list(range(self.minorder, self.maxorder)))
+        spectroname = basename(zmx_model)
+        if ".zmx" in spectroname:
+            spectroname = spectroname.replace(".zmx",".hdf")
+        elif ".ZMX" in spectroname:
+            spectroname = spectroname.replace(".ZMX",".hdf")
+            
+        hdf = HDFBuilder(zmx, join(self.wdir,spectroname))
+        
+        hdf.save_to_hdf(n_transformation_per_order=n_transformation_per_order, n_psfs_per_order=n_psfs_per_order)
+
         self._save()
 if '__main__' in __name__:
     from pyvroomm.model.vroomm2 import vroomm
